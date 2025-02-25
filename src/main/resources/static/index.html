@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <title>幣別管理系統</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: inline-block;
+            width: 100px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        .button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>幣別管理系統</h1>
+
+    <!-- 新增/編輯表單 -->
+    <div id="currencyForm">
+        <h2>新增/編輯幣別</h2>
+        <div class="form-group">
+            <label for="code">幣別代碼:</label>
+            <input type="text" id="code" maxlength="3">
+        </div>
+        <div class="form-group">
+            <label for="chineseName">中文名稱:</label>
+            <input type="text" id="chineseName">
+        </div>
+        <button onclick="saveCurrency()" class="button">儲存</button>
+        <button onclick="resetForm()" class="button">重置</button>
+    </div>
+
+    <!-- 幣別列表 -->
+    <h2>幣別列表</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>幣別代碼</th>
+                <th>中文名稱</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="currencyList">
+        </tbody>
+    </table>
+
+    <!-- CoinDesk 資料 -->
+    <h2>CoinDesk 即時匯率</h2>
+    <pre id="coindeskData"></pre>
+
+    <div id="errorMessage" class="error"></div>
+
+    <script>
+        let isEditing = false;
+        const API_BASE_URL = '/api/currencies';
+
+        // 載入所有幣別
+        function loadCurrencies() {
+            fetch(API_BASE_URL)
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('currencyList');
+                    tbody.innerHTML = '';
+                    data.forEach(currency => {
+                        tbody.innerHTML += `
+                            <tr>
+                                <td>${currency.code}</td>
+                                <td>${currency.chineseName}</td>
+                                <td>
+                                    <button onclick="editCurrency('${currency.code}', '${currency.chineseName}')" class="button">編輯</button>
+                                    <button onclick="deleteCurrency('${currency.code}')" class="button">刪除</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                })
+                .catch(error => showError('載入幣別列表失敗: ' + error.message));
+        }
+
+        // 載入 CoinDesk 資料
+        function loadCoinDeskData() {
+            fetch(API_BASE_URL + '/coindesk')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('coindeskData').textContent =
+                        JSON.stringify(data, null, 2);
+                })
+                .catch(error => showError('載入 CoinDesk 資料失敗: ' + error.message));
+        }
+
+        // 儲存幣別（新增或更新）
+        function saveCurrency() {
+            const code = document.getElementById('code').value;
+            const chineseName = document.getElementById('chineseName').value;
+
+            if (!code || !chineseName) {
+                showError('請填寫所有欄位');
+                return;
+            }
+
+            const method = isEditing ? 'PUT' : 'POST';
+            const url = isEditing ? `${API_BASE_URL}/${code}` : API_BASE_URL;
+
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ code, chineseName })
+            })
+                .then(response => response.json())
+                .then(() => {
+                    resetForm();
+                    loadCurrencies();
+                })
+                .catch(error => showError('儲存失敗: ' + error.message));
+        }
+
+        // 編輯幣別
+        function editCurrency(code, chineseName) {
+            document.getElementById('code').value = code;
+            document.getElementById('code').disabled = true;
+            document.getElementById('chineseName').value = chineseName;
+            isEditing = true;
+        }
+
+        // 刪除幣別
+        function deleteCurrency(code) {
+            if (!confirm('確定要刪除此幣別嗎？')) return;
+
+            fetch(`${API_BASE_URL}/${code}`, {
+                method: 'DELETE'
+            })
+                .then(() => loadCurrencies())
+                .catch(error => showError('刪除失敗: ' + error.message));
+        }
+
+        // 重置表單
+        function resetForm() {
+            document.getElementById('code').value = '';
+            document.getElementById('code').disabled = false;
+            document.getElementById('chineseName').value = '';
+            isEditing = false;
+            clearError();
+        }
+
+        // 顯示錯誤訊息
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        // 清除錯誤訊息
+        function clearError() {
+            document.getElementById('errorMessage').textContent = '';
+        }
+
+        // 初始化
+        window.onload = function () {
+            loadCurrencies();
+            loadCoinDeskData();
+            // 每 30 秒更新一次 CoinDesk 資料
+            setInterval(loadCoinDeskData, 30000);
+        };
+    </script>
+</body>
+
+</html>
