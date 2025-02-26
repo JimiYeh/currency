@@ -18,25 +18,37 @@ public class CurrencyService {
 
     private final CurrencyRepository currencyRepository;
     private final CoinDeskApiClient coinDeskApiClient;
+    private final Object currencyLock = new Object(); // 幣別操作的鎖
 
-    // 保存最近一次的 API 響應數據
-    private CoinDeskResponse cachedCoinDeskResponse;
+    // 使用 volatile 確保可見性
+    private volatile CoinDeskResponse cachedCoinDeskResponse;
+
+    // 用於同步的對象
+    private final Object lock = new Object();
 
     // 獲取並轉換 CoinDesk API 數據
     public CurrencyResponseDTO getFormattedCoinDeskData() {
-        // 如果沒有緩存數據，才調用 API
-        if (cachedCoinDeskResponse == null) {
-            cachedCoinDeskResponse = coinDeskApiClient.getCoinDeskData();
+        CoinDeskResponse response = cachedCoinDeskResponse;
+        if (response == null) {
+            // 使用 double-checked locking 模式
+            synchronized (lock) {
+                response = cachedCoinDeskResponse;
+                if (response == null) {
+                    response = coinDeskApiClient.getCoinDeskData();
+                    cachedCoinDeskResponse = response;
+                }
+            }
         }
-
-        // 使用緩存的數據進行轉換
-        return convertToResponseDTO(cachedCoinDeskResponse);
+        return convertToResponseDTO(response);
     }
 
     // 強制更新 CoinDesk 數據
     public CurrencyResponseDTO refreshCoinDeskData() {
-        cachedCoinDeskResponse = coinDeskApiClient.getCoinDeskData();
-        return convertToResponseDTO(cachedCoinDeskResponse);
+        synchronized (lock) {
+            CoinDeskResponse response = coinDeskApiClient.getCoinDeskData();
+            cachedCoinDeskResponse = response;
+            return convertToResponseDTO(response);
+        }
     }
 
     // 轉換數據格式
@@ -77,20 +89,33 @@ public class CurrencyService {
 
     // 新增幣別
     public CurrencyEntity createCurrency(CurrencyEntity currency) {
-        return currencyRepository.save(currency);
+        synchronized (currencyLock) {
+            // 檢查是否已存在
+            if (currencyRepository.existsById(currency.getCode())) {
+                throw new RuntimeException("Currency already exists: " + currency.getCode());
+            }
+            return currencyRepository.save(currency);
+        }
     }
 
     // 更新幣別
     public CurrencyEntity updateCurrency(String code, CurrencyEntity currency) {
-        if (!currencyRepository.existsById(code)) {
-            throw new RuntimeException("Currency not found: " + code);
+        synchronized (currencyLock) {
+            if (!currencyRepository.existsById(code)) {
+                throw new RuntimeException("Currency not found: " + code);
+            }
+            currency.setCode(code);
+            return currencyRepository.save(currency);
         }
-        currency.setCode(code);
-        return currencyRepository.save(currency);
     }
 
     // 刪除幣別
     public void deleteCurrency(String code) {
-        currencyRepository.deleteById(code);
+        synchronized (currencyLock) {
+            if (!currencyRepository.existsById(code)) {
+                throw new RuntimeException("Currency not found: " + code);
+            }
+            currencyRepository.deleteById(code);
+        }
     }
 }
