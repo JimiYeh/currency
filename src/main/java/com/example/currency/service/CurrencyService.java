@@ -5,6 +5,7 @@ import com.example.currency.dto.CurrencyResponseDTO;
 import com.example.currency.entity.CurrencyEntity;
 import com.example.currency.repository.CurrencyRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -25,6 +26,14 @@ public class CurrencyService {
 
     // 用於同步的對象
     private final Object lock = new Object();
+
+    // 定時更新緩存數據
+    @Scheduled(fixedDelayString = "${coindesk.cache.refresh-interval}")
+    public void scheduledRefreshCache() {
+        synchronized (lock) {
+            cachedCoinDeskResponse = coinDeskApiClient.getCoinDeskData();
+        }
+    }
 
     // 獲取並轉換 CoinDesk API 數據
     public CurrencyResponseDTO getFormattedCoinDeskData() {
