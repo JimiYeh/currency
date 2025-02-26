@@ -28,7 +28,7 @@ public class CurrencyService {
     private final Object lock = new Object();
 
     // 定時更新緩存數據
-    @Scheduled(fixedDelayString = "${coindesk.cache.refresh-interval}")
+    @Scheduled(fixedRateString = "${coindesk.cache.refresh-interval}")
     public void scheduledRefreshCache() {
         synchronized (lock) {
             cachedCoinDeskResponse = coinDeskApiClient.getCoinDeskData();
