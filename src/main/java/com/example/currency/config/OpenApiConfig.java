@@ -16,6 +16,7 @@ public class OpenApiConfig {
                         .title("幣別轉換 API")
                         .description("提供幣別轉換相關的 REST API")
                         .version("1.0.0")
-                        .contact(new Contact().name("Jimi")));
+                        .contact(new Contact()
+                                .name("Jimi")));
     }
 }
