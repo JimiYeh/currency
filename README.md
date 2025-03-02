@@ -34,15 +34,6 @@
 - [Swagger UI 文檔](https://currency-production-d23d.up.railway.app/swagger-ui/index.html)
 - [操作展示影片](https://youtu.be/p00yyi9IJw0)
 
-## 技術棧
-
-- Spring Boot 3.2.3
-- Spring Data JPA
-- H2 Database
-- Swagger UI (SpringDoc OpenAPI)
-- Lombok
-- JUnit 5
-
 ## API 功能
 
 1. 幣別管理
